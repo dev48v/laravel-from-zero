@@ -1,83 +1,103 @@
 <?php
 
-// STEP 5 — TheMealDBService.
+// STEP 11 — cache every upstream call.
 //
-// One class, one responsibility: every call that leaves this app and hits
-// TheMealDB goes through here. Controllers never construct URLs or parse
-// upstream JSON themselves — they ask this service for PHP arrays.
+// Why here (inside the service) instead of the controllers:
+//   * Every endpoint benefits without duplicating cache boilerplate.
+//   * Tests of controllers never need to know about caching.
+//   * Swapping the backing store (file, redis) is a .env change.
 //
-// Why a service and not inline HTTP in the controller:
-//   * Testable: can be swapped with Http::fake() in one line.
-//   * Caching gets added in step 11 without touching controllers.
-//   * If TheMealDB ever changes (new version, new host), only this file moves.
+// Cache keys are stable, human-readable, and namespaced under `tmdb:` so
+// they're easy to flush with `php artisan cache:forget tmdb:search:chicken`.
+// `Cache::remember` returns the cached value if present or calls the
+// closure, stores its result, and returns it — one-line memoisation.
+//
+// We also expose a `wasLastCallCached()` probe so step 13's /api/health
+// and the `X-Cache` header can report the last lookup's hit/miss status
+// without the caller re-walking the cache store.
 
 namespace App\Services;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class TheMealDBService
 {
     private string $baseUrl;
+    private int    $ttl;
+    private bool   $lastWasCached = false;
 
     public function __construct()
     {
-        // Config, not env(), because env() is only reliable before config
-        // is cached. Reading config keys keeps `php artisan config:cache`
-        // safe in production.
         $this->baseUrl = rtrim(config('services.themealdb.base_url'), '/');
+        $this->ttl     = (int) config('services.themealdb.cache_ttl');
     }
 
-    // GET {base}/search.php?s={query} — returns meals matching name.
     public function search(string $query): array
     {
-        $json = $this->client()->get('/search.php', ['s' => $query])->json();
-
-        // TheMealDB returns `{"meals": null}` when nothing matches. Normalising
-        // that to an empty array means callers can always `foreach` the result.
-        return $json['meals'] ?? [];
+        return $this->cached("search:" . strtolower($query), function () use ($query) {
+            return $this->client()->get('/search.php', ['s' => $query])->json('meals') ?? [];
+        });
     }
 
-    // GET {base}/lookup.php?i={id} — returns a single meal or null.
     public function getById(int|string $id): ?array
     {
-        $meals = $this->client()->get('/lookup.php', ['i' => $id])->json('meals');
-
-        return $meals[0] ?? null;
+        return $this->cached("lookup:{$id}", function () use ($id) {
+            $meals = $this->client()->get('/lookup.php', ['i' => $id])->json('meals');
+            return $meals[0] ?? null;
+        });
     }
 
-    // GET {base}/random.php — returns one random meal, never null from upstream.
+    // Random is intentionally NOT cached — caching a random endpoint would
+    // pin a single meal for the whole TTL, which defeats the point.
     public function random(): ?array
     {
+        $this->lastWasCached = false;
         $meals = $this->client()->get('/random.php')->json('meals');
 
         return $meals[0] ?? null;
     }
 
-    // GET {base}/categories.php — list of all top-level categories.
     public function categories(): array
     {
-        return $this->client()->get('/categories.php')->json('categories') ?? [];
+        return $this->cached('categories', function () {
+            return $this->client()->get('/categories.php')->json('categories') ?? [];
+        });
     }
 
-    // GET {base}/filter.php?c={category} — lightweight meal list for a category.
-    // NOTE: TheMealDB's filter endpoint returns *only* id/name/thumb, not full
-    // detail. Callers that want full detail must loop via getById(). That's a
-    // deliberate upstream API choice — we mirror it instead of hiding it.
     public function filterByCategory(string $category): array
     {
-        return $this->client()->get('/filter.php', ['c' => $category])->json('meals') ?? [];
+        return $this->cached("cat:" . strtolower($category), function () use ($category) {
+            return $this->client()->get('/filter.php', ['c' => $category])->json('meals') ?? [];
+        });
     }
 
-    // GET {base}/filter.php?i={ingredient} — same shape as filterByCategory.
     public function filterByIngredient(string $ingredient): array
     {
-        return $this->client()->get('/filter.php', ['i' => $ingredient])->json('meals') ?? [];
+        return $this->cached("ing:" . strtolower($ingredient), function () use ($ingredient) {
+            return $this->client()->get('/filter.php', ['i' => $ingredient])->json('meals') ?? [];
+        });
     }
 
-    // Single place to configure the HTTP client used for every upstream call.
-    // `acceptJson()` sets the Accept header, `timeout(10)` bounds slow upstreams,
-    // `baseUrl()` lets each method above use short paths like '/search.php'.
+    // True when the most recent method call was served from cache.
+    // Used by controllers / health checks to set response headers.
+    public function wasLastCallCached(): bool
+    {
+        return $this->lastWasCached;
+    }
+
+    // Thin wrapper around Cache::remember that records hit/miss for the
+    // last lookup. We check Cache::has() first so we can distinguish hit
+    // from miss — remember() alone hides that information.
+    private function cached(string $key, \Closure $miss): mixed
+    {
+        $fullKey = "tmdb:{$key}";
+        $this->lastWasCached = Cache::has($fullKey);
+
+        return Cache::remember($fullKey, $this->ttl, $miss);
+    }
+
     private function client(): PendingRequest
     {
         return Http::baseUrl($this->baseUrl)
