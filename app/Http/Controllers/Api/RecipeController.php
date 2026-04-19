@@ -10,15 +10,39 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\TheMealDBService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RecipeController extends Controller
 {
-    // GET /api/recipes/search?q=chicken — text search by meal name.
+    // Laravel's service container auto-resolves this constructor — we get
+    // a TheMealDBService instance on every request without any `new` call.
+    public function __construct(private readonly TheMealDBService $meals) {}
+
+    // STEP 6 — wired. GET /api/recipes/search?q=chicken.
+    //
+    // Validation is inline for now; step 12 replaces it with a dedicated
+    // Form Request class so we can show how Laravel splits validation
+    // off the controller when the rule set grows.
     public function search(Request $request): JsonResponse
     {
-        return $this->todo('search');
+        $query = trim((string) $request->query('q', ''));
+
+        if ($query === '') {
+            return response()->json([
+                'error'   => 'missing_query',
+                'message' => "Pass a search term via ?q=, e.g. /api/recipes/search?q=chicken",
+            ], 422);
+        }
+
+        $results = $this->meals->search($query);
+
+        return response()->json([
+            'query' => $query,
+            'count' => count($results),
+            'data'  => $results,
+        ]);
     }
 
     // GET /api/recipes/{id} — return the full detail of one meal.
