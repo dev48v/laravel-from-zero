@@ -1,0 +1,33 @@
+# Render Blueprint — one-click deploy of this repo.
+#
+# To deploy: in the Render dashboard, choose "New → Blueprint", point it
+# at this repo, and Render reads this file to create the service.
+# After first deploy, set APP_KEY (Render → Environment → Add) to a
+# value from `make artisan CMD="key:generate --show"`.
+services:
+  - type: web
+    name: laravel-from-zero
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: https://laravel-from-zero.onrender.com
+      - key: APP_KEY
+        sync: false
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: CACHE_STORE
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: THEMEALDB_BASE_URL
+        value: https://www.themealdb.com/api/json/v1/1
+      - key: THEMEALDB_CACHE_TTL
+        value: "600"
