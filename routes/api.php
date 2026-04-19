@@ -27,3 +27,25 @@ Route::prefix('categories')->controller(CategoryController::class)->group(functi
 
 // Ingredient filter — "show me every recipe that uses chicken_breast".
 Route::get('/ingredients/{ingredient}/recipes', [RecipeController::class, 'byIngredient']);
+
+// STEP 13 — liveness/health check. Returns a tiny JSON blob that load
+// balancers and uptime monitors can poll without hitting TheMealDB.
+// Reports whether the cache store is reachable; that's the only runtime
+// dependency the app has besides PHP itself.
+Route::get('/health', function () {
+    $cacheOk = true;
+    try {
+        cache()->put('health:ping', '1', 5);
+        $cacheOk = cache()->get('health:ping') === '1';
+    } catch (\Throwable $e) {
+        $cacheOk = false;
+    }
+
+    return response()->json([
+        'status'  => $cacheOk ? 'ok' : 'degraded',
+        'app'     => config('app.name'),
+        'version' => 'laravel-from-zero',
+        'time'    => now()->toIso8601String(),
+        'cache'   => $cacheOk ? 'up' : 'down',
+    ]);
+});
