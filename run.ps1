@@ -12,7 +12,7 @@ param(
 )
 
 $composerImg = "composer:2"
-$phpImg      = "php:8.2-cli"
+$phpImg      = "php:8.4-cli"
 $mount       = @("-v", "${PWD}:/app", "-w", "/app")
 
 # Docker Desktop on Windows handles drive-letter paths natively here — no MSYS

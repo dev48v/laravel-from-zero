@@ -113,8 +113,8 @@ Each commit is one teaching moment. Clone the repo and run `git log --oneline --
 | | |
 |---|---|
 | **Framework** | Laravel 11 |
-| **Language** | PHP 8.2 |
-| **Runtime** | Docker (`php:8.2-cli`, `composer:2`) |
+| **Language** | PHP 8.4 |
+| **Runtime** | Docker (`php:8.4-cli`, `composer:2`) |
 | **Frontend** | Blade + Tailwind (Play CDN) |
 | **Storage** | SQLite (cache + sessions) |
 | **Upstream API** | [TheMealDB](https://www.themealdb.com) |

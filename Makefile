@@ -3,11 +3,15 @@
 # Why a Makefile: the raw `docker run` invocations are long and repetitive.
 # Each target below is a thin wrapper that mounts the project into a short-lived
 # container, runs a single command, and disappears. The host stays clean.
+#
+# Why PHP 8.4: the official `composer:2` image ships with PHP 8.4, so its
+# `platform_check.php` pins the app to 8.4. Keeping runtime and install
+# PHP versions matched means dependency checks don't trip on boot.
 
 PWD_WIN := $(shell pwd -W 2>/dev/null || pwd)
 MOUNT   := -v "$(PWD_WIN):/app" -w /app
 COMPOSER_IMG := composer:2
-PHP_IMG      := php:8.2-cli
+PHP_IMG      := php:8.4-cli
 PORT ?= 8000
 
 # composer <cmd> — e.g. `make composer CMD="require laravel/sanctum"`
