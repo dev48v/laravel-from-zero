@@ -8,28 +8,39 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\TheMealDBService;
 use Illuminate\Http\JsonResponse;
 
 class CategoryController extends Controller
 {
-    // GET /api/categories — every category TheMealDB knows about.
+    // Same pattern as RecipeController: service injected by the container.
+    public function __construct(private readonly TheMealDBService $meals) {}
+
+    // STEP 9 — wired. GET /api/categories.
     public function index(): JsonResponse
     {
-        return $this->todo('index');
+        $categories = $this->meals->categories();
+
+        return response()->json([
+            'count' => count($categories),
+            'data'  => $categories,
+        ]);
     }
 
-    // GET /api/categories/{category}/recipes — list meals inside one category.
+    // STEP 9 — wired. GET /api/categories/{category}/recipes.
+    //
+    // URL decoding note: Laravel already url-decodes route params, so a
+    // request for `/api/categories/Side%20Dish/recipes` arrives here with
+    // $category = "Side Dish" (space, not %20) — we pass that straight
+    // through to TheMealDB which re-encodes it in the Http client.
     public function recipes(string $category): JsonResponse
     {
-        return $this->todo('recipes');
-    }
+        $recipes = $this->meals->filterByCategory($category);
 
-    private function todo(string $method): JsonResponse
-    {
         return response()->json([
-            'error'   => 'not_implemented',
-            'method'  => $method,
-            'message' => "CategoryController::{$method} is not wired yet.",
-        ], 501);
+            'category' => $category,
+            'count'    => count($recipes),
+            'data'     => $recipes,
+        ]);
     }
 }
