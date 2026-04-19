@@ -13,9 +13,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SearchRecipeRequest;
 use App\Services\TheMealDBService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class RecipeController extends Controller
 {
@@ -25,20 +25,12 @@ class RecipeController extends Controller
 
     // GET /api/recipes/search?q=chicken.
     //
-    // Validation is inline for now; step 12 replaces it with a dedicated
-    // Form Request class so we can show how Laravel splits validation
-    // off the controller when the rule set grows.
-    public function search(Request $request): JsonResponse
+    // STEP 12 — validation is now a Form Request. By the time this method
+    // runs, Laravel has already checked `q`: if it's missing or too short,
+    // a 422 JSON response went out and this line never ran.
+    public function search(SearchRecipeRequest $request): JsonResponse
     {
-        $query = trim((string) $request->query('q', ''));
-
-        if ($query === '') {
-            return response()->json([
-                'error'   => 'missing_query',
-                'message' => "Pass a search term via ?q=, e.g. /api/recipes/search?q=chicken",
-            ], 422);
-        }
-
+        $query   = $request->validated('q');
         $results = $this->meals->search($query);
 
         return $this->cached(response()->json([
