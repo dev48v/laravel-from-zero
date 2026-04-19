@@ -66,10 +66,23 @@ class RecipeController extends Controller
         return response()->json(['data' => $meal]);
     }
 
-    // GET /api/recipes/random — a single random meal from TheMealDB.
+    // STEP 8 — wired. GET /api/recipes/random.
+    //
+    // TheMealDB's random endpoint virtually never returns null in practice,
+    // but we defend against it anyway: upstream contracts can drift, and a
+    // 502 is a clearer signal to clients than an empty 200.
     public function random(): JsonResponse
     {
-        return $this->todo('random');
+        $meal = $this->meals->random();
+
+        if ($meal === null) {
+            return response()->json([
+                'error'   => 'upstream_empty',
+                'message' => 'TheMealDB returned no meal. Try again in a moment.',
+            ], 502);
+        }
+
+        return response()->json(['data' => $meal]);
     }
 
     // GET /api/ingredients/{ingredient}/recipes — meals containing an ingredient.
