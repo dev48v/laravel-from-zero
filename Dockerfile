@@ -25,7 +25,8 @@ COPY . .
 # Post-install tasks that need the full tree.
 RUN composer dump-autoload --optimize --no-dev \
     && php artisan config:clear \
-    && mkdir -p storage/framework/{sessions,views,cache} database \
+    && mkdir -p storage/framework/sessions storage/framework/views \
+                storage/framework/cache/data storage/logs database \
     && touch database/database.sqlite \
     && chmod -R 777 storage bootstrap/cache database
 
