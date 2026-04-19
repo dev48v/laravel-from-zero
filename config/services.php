@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // TheMealDB — upstream API the recipe endpoints proxy. Reading base_url
+    // and cache_ttl through this config (instead of env() inside services)
+    // means tests and Tinker can override them cleanly via Config::set().
+    'themealdb' => [
+        'base_url'  => env('THEMEALDB_BASE_URL', 'https://www.themealdb.com/api/json/v1/1'),
+        'cache_ttl' => (int) env('THEMEALDB_CACHE_TTL', 600),
+    ],
+
 ];
