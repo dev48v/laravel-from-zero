@@ -45,10 +45,25 @@ class RecipeController extends Controller
         ]);
     }
 
-    // GET /api/recipes/{id} — return the full detail of one meal.
+    // STEP 7 — wired. GET /api/recipes/{id}.
+    //
+    // We purposely return a flat object as `data` (not wrapped in an array)
+    // because this endpoint is singular. A 404 when the meal doesn't exist
+    // — instead of `data: null` with 200 — keeps the contract honest so
+    // client code can trust `response.ok` without peeking at the body.
     public function show(int $id): JsonResponse
     {
-        return $this->todo('show');
+        $meal = $this->meals->getById($id);
+
+        if ($meal === null) {
+            return response()->json([
+                'error'   => 'not_found',
+                'id'      => $id,
+                'message' => "No recipe with id {$id}.",
+            ], 404);
+        }
+
+        return response()->json(['data' => $meal]);
     }
 
     // GET /api/recipes/random — a single random meal from TheMealDB.
