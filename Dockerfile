@@ -29,10 +29,8 @@ RUN composer dump-autoload --optimize --no-dev \
     && touch database/database.sqlite \
     && chmod -R 777 storage bootstrap/cache database
 
-# Render injects $PORT at runtime (usually 10000).
+# Render injects $PORT at runtime (usually 10000). APP_KEY + every other
+# config value comes from Render's envVars, so no .env file is needed and
+# `key:generate` isn't called at boot (it would fail trying to write .env).
 EXPOSE 10000
-CMD sh -c '\
-    if [ -z "$APP_KEY" ]; then php artisan key:generate --force; fi && \
-    php artisan migrate --force && \
-    php artisan config:cache && \
-    php -S 0.0.0.0:${PORT:-10000} -t public'
+CMD sh -c 'php artisan config:cache && php -S 0.0.0.0:${PORT:-10000} -t public'
