@@ -85,21 +85,21 @@ class RecipeController extends Controller
         return response()->json(['data' => $meal]);
     }
 
-    // GET /api/ingredients/{ingredient}/recipes — meals containing an ingredient.
+    // STEP 10 — wired. GET /api/ingredients/{ingredient}/recipes.
+    //
+    // TheMealDB expects spaces as underscores for this endpoint
+    // (chicken_breast, not chicken%20breast). We convert here so our API
+    // stays REST-friendly and users can just pass "chicken breast".
     public function byIngredient(string $ingredient): JsonResponse
     {
-        return $this->todo('byIngredient');
+        $upstream = str_replace(' ', '_', trim($ingredient));
+        $recipes  = $this->meals->filterByIngredient($upstream);
+
+        return response()->json([
+            'ingredient' => $ingredient,
+            'count'      => count($recipes),
+            'data'       => $recipes,
+        ]);
     }
 
-    // Single helper so every unfinished endpoint speaks the same shape.
-    // Returning 501 (Not Implemented) is deliberately honest — 200 with
-    // an empty array would look like a working endpoint with no data.
-    private function todo(string $method): JsonResponse
-    {
-        return response()->json([
-            'error'   => 'not_implemented',
-            'method'  => $method,
-            'message' => "RecipeController::{$method} is not wired yet.",
-        ], 501);
-    }
 }
